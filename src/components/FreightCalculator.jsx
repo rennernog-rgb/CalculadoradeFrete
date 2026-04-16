@@ -51,27 +51,27 @@ export default function FreightCalculator() {
     setDistAutoFill(false)
   }
 
-  function calcularDistancia() {
+  async function calcularDistancia() {
     if (!origemPlace.current?.location || !destinoPlace.current?.location) return
-    const g = window.google
-    if (!g) return
     setLoadingDist(true)
-    new g.maps.DistanceMatrixService().getDistanceMatrix(
-      {
+    try {
+      const { DistanceMatrixService, TravelMode, UnitSystem } = await importLibrary('routes')
+      const svc = new DistanceMatrixService()
+      const res = await svc.getDistanceMatrix({
         origins:      [origemPlace.current.location],
         destinations: [destinoPlace.current.location],
-        travelMode:   g.maps.TravelMode.DRIVING,
-        unitSystem:   g.maps.UnitSystem.METRIC,
-      },
-      (res, status) => {
-        setLoadingDist(false)
-        if (status !== 'OK') return
-        const el = res.rows[0].elements[0]
-        if (el.status !== 'OK') return
-        setForm(prev => ({ ...prev, distanciaKm: (el.distance.value / 1000).toFixed(1) }))
-        setDistAutoFill(true)
-      }
-    )
+        travelMode:   TravelMode.DRIVING,
+        unitSystem:   UnitSystem.METRIC,
+      })
+      const el = res.rows[0].elements[0]
+      if (el.status !== 'OK') return
+      setForm(prev => ({ ...prev, distanciaKm: (el.distance.value / 1000).toFixed(1) }))
+      setDistAutoFill(true)
+    } catch {
+      // ignore
+    } finally {
+      setLoadingDist(false)
+    }
   }
 
   useEffect(() => {
