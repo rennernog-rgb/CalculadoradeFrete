@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
+import { Loader } from '@googlemaps/js-api-loader'
 import './FreightCalculator.css'
 
 function formatBRL(value) {
@@ -7,6 +7,7 @@ function formatBRL(value) {
 }
 
 const DASH = '—'
+const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY
 
 const initialState = {
   origem: '',
@@ -29,6 +30,8 @@ export default function FreightCalculator() {
   const [distAutoFill, setDistAutoFill] = useState(false)
   const [origemSuggs, setOrigemSuggs]   = useState([])
   const [destinoSuggs, setDestinoSuggs] = useState([])
+  const [mapsReady, setMapsReady]       = useState(false)
+  const [mapsError, setMapsError]       = useState('')
 
   const origemPlace  = useRef(null)
   const destinoPlace = useRef(null)
@@ -36,10 +39,52 @@ export default function FreightCalculator() {
   const destinoTimer = useRef(null)
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY
-    if (!apiKey) return
-    setOptions({ apiKey, version: 'weekly' })
+    if (!API_KEY) {
+      setMapsError('Chave de API não configurada.')
+      return
+    }
+    const loader = new Loader({ apiKey: API_KEY, version: 'weekly' })
+    loader.load()
+      .then(() => setMapsReady(true))
+      .catch((err) => setMapsError('Erro ao carregar Google Maps: ' + err.message))
   }, [])
+
+  async function buscarSugestoes(value, setSuggs) {
+    if (!value || !API_KEY) { setSuggs([]); return }
+    try {
+      const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': API_KEY,
+          'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat',
+        },
+        body: JSON.stringify({ input: value, languageCode: 'pt-BR', regionCode: 'BR' }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setMapsError('Places API: ' + data.error.message)
+        setSuggs([])
+      } else {
+        setSuggs(data.suggestions || [])
+      }
+    } catch (err) {
+      setMapsError('Erro na busca: ' + err.message)
+      setSuggs([])
+    }
+  }
+
+  async function buscarCoordenadas(placeId) {
+    const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+      headers: {
+        'X-Goog-Api-Key': API_KEY,
+        'X-Goog-FieldMask': 'location',
+      },
+    })
+    const data = await res.json()
+    if (!data.location) return null
+    return { lat: data.location.latitude, lng: data.location.longitude }
+  }
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -55,21 +100,7 @@ export default function FreightCalculator() {
     setDestinoSuggs([])
     setLoadingDist(false)
     setDistAutoFill(false)
-  }
-
-  async function buscarSugestoes(value, setSuggs) {
-    if (!value) { setSuggs([]); return }
-    try {
-      const { AutocompleteSuggestion } = await importLibrary('places')
-      const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-        input: value,
-        language: 'pt-BR',
-        region: 'br',
-      })
-      setSuggs(suggestions)
-    } catch {
-      setSuggs([])
-    }
+    setMapsError('')
   }
 
   function handleOrigemChange(e) {
@@ -78,7 +109,7 @@ export default function FreightCalculator() {
     origemPlace.current = null
     setDistAutoFill(false)
     clearTimeout(origemTimer.current)
-    origemTimer.current = setTimeout(() => buscarSugestoes(value, setOrigemSuggs), 300)
+    origemTimer.current = setTimeout(() => buscarSugestoes(value, setOrigemSuggs), 350)
   }
 
   function handleDestinoChange(e) {
@@ -87,42 +118,41 @@ export default function FreightCalculator() {
     destinoPlace.current = null
     setDistAutoFill(false)
     clearTimeout(destinoTimer.current)
-    destinoTimer.current = setTimeout(() => buscarSugestoes(value, setDestinoSuggs), 300)
+    destinoTimer.current = setTimeout(() => buscarSugestoes(value, setDestinoSuggs), 350)
   }
 
-  async function selecionarLugar(suggestion, campo, setPlace, setSuggs) {
-    const pred  = suggestion.placePrediction
-    const nome  = pred.mainText.text
+  async function selecionarLugar(sugg, campo, placeRef, setSuggs) {
+    const pred = sugg.placePrediction
+    const nome = pred.structuredFormat.mainText.text
     setForm(prev => ({ ...prev, [campo]: nome }))
     setSuggs([])
-    const place = pred.toPlace()
-    await place.fetchFields({ fields: ['location'] })
-    if (!place.location) return
-    setPlace.current = { location: place.location }
+    const coords = await buscarCoordenadas(pred.placeId)
+    if (!coords) return
+    placeRef.current = coords
     calcularDistancia()
   }
 
-  async function calcularDistancia() {
-    if (!origemPlace.current?.location || !destinoPlace.current?.location) return
+  function calcularDistancia() {
+    if (!origemPlace.current || !destinoPlace.current) return
+    if (!mapsReady || !window.google?.maps) return
     setLoadingDist(true)
-    try {
-      const { DistanceMatrixService, TravelMode, UnitSystem } = await importLibrary('routes')
-      const svc = new DistanceMatrixService()
-      const res = await svc.getDistanceMatrix({
-        origins:      [origemPlace.current.location],
-        destinations: [destinoPlace.current.location],
-        travelMode:   TravelMode.DRIVING,
-        unitSystem:   UnitSystem.METRIC,
-      })
-      const el = res.rows[0].elements[0]
-      if (el.status !== 'OK') return
-      setForm(prev => ({ ...prev, distanciaKm: (el.distance.value / 1000).toFixed(1) }))
-      setDistAutoFill(true)
-    } catch {
-      // ignore
-    } finally {
-      setLoadingDist(false)
-    }
+    const svc = new window.google.maps.DistanceMatrixService()
+    svc.getDistanceMatrix(
+      {
+        origins:      [origemPlace.current],
+        destinations: [destinoPlace.current],
+        travelMode:   window.google.maps.TravelMode.DRIVING,
+        unitSystem:   window.google.maps.UnitSystem.METRIC,
+      },
+      (res, status) => {
+        setLoadingDist(false)
+        if (status !== 'OK') { setMapsError('Distance Matrix: ' + status); return }
+        const el = res.rows[0].elements[0]
+        if (el.status !== 'OK') { setMapsError('Rota inválida: ' + el.status); return }
+        setForm(prev => ({ ...prev, distanciaKm: (el.distance.value / 1000).toFixed(1) }))
+        setDistAutoFill(true)
+      }
+    )
   }
 
   const calc = useMemo(() => {
@@ -150,8 +180,7 @@ export default function FreightCalculator() {
 
     return {
       gastoCombustivel, custoPedagio, faturamentoBruto, lucroLiquido,
-      lucroSemanal, lucroDiario, lucroMensal,
-      prontoViagem, prontoProjecao,
+      lucroSemanal, lucroDiario, lucroMensal, prontoViagem, prontoProjecao,
     }
   }, [
     form.distanciaKm, form.mediaConsumo, form.valorDiesel,
@@ -167,8 +196,8 @@ export default function FreightCalculator() {
       <ul className="fc-sugg-list">
         {suggs.map(s => (
           <li key={s.placePrediction.placeId} onMouseDown={() => onSelect(s)}>
-            <span className="fc-sugg-main">{s.placePrediction.mainText.text}</span>
-            <span className="fc-sugg-sub">{s.placePrediction.secondaryText?.text}</span>
+            <span className="fc-sugg-main">{s.placePrediction.structuredFormat.mainText.text}</span>
+            <span className="fc-sugg-sub">{s.placePrediction.structuredFormat.secondaryText?.text}</span>
           </li>
         ))}
       </ul>
@@ -178,7 +207,6 @@ export default function FreightCalculator() {
   return (
     <div className="fc-wrapper">
 
-      {/* ── HEADER ── */}
       <header className="fc-header">
         <div className="fc-header-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -195,13 +223,16 @@ export default function FreightCalculator() {
         <div className="fc-header-badge">v2.0 · Gestão Logística</div>
       </header>
 
-      {/* ── DASHBOARD ── */}
       <div className="fc-dashboard">
-
         <div className="fc-form-col">
           <form onSubmit={(e) => e.preventDefault()}>
 
-            {/* Informações da Rota */}
+            {mapsError && (
+              <div className="fc-api-error">
+                ⚠ {mapsError}
+              </div>
+            )}
+
             <section className="fc-section">
               <div className="fc-section-label">
                 <span className="fc-section-icon">
@@ -292,7 +323,6 @@ export default function FreightCalculator() {
               </div>
             </section>
 
-            {/* Dados do Veículo */}
             <section className="fc-section">
               <div className="fc-section-label">
                 <span className="fc-section-icon">
@@ -309,9 +339,7 @@ export default function FreightCalculator() {
                 <div className="fc-field">
                   <label htmlFor="mediaConsumo">Média de Consumo <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 12h18M3 6h18M3 18h18" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
                     <input id="mediaConsumo" name="mediaConsumo" type="number" min="0" step="0.01" placeholder="0,00" value={form.mediaConsumo} onChange={handleChange} />
                     <span className="fc-unit">km/l</span>
                   </div>
@@ -319,11 +347,7 @@ export default function FreightCalculator() {
                 <div className="fc-field">
                   <label htmlFor="quantidadeEixos">Qtd. de Eixos <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="6" cy="18" r="3" />
-                      <circle cx="18" cy="18" r="3" />
-                      <path d="M6 15V9l6-6 6 6v6" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" /><path d="M6 15V9l6-6 6 6v6" /></svg>
                     <input id="quantidadeEixos" name="quantidadeEixos" type="number" min="0" step="1" placeholder="0" value={form.quantidadeEixos} onChange={handleChange} />
                     <span className="fc-unit">eixos</span>
                   </div>
@@ -331,9 +355,7 @@ export default function FreightCalculator() {
                 <div className="fc-field">
                   <label htmlFor="capacidadeCarga">Capacidade de Carga <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>
                     <input id="capacidadeCarga" name="capacidadeCarga" type="number" min="0" step="0.1" placeholder="0,0" value={form.capacidadeCarga} onChange={handleChange} />
                     <span className="fc-unit">ton</span>
                   </div>
@@ -341,30 +363,21 @@ export default function FreightCalculator() {
               </div>
             </section>
 
-            {/* Pedágios da Rota */}
             <section className="fc-section">
               <div className="fc-section-label">
                 <span className="fc-section-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                 </span>
                 Pedágios da Rota
                 {calc.custoPedagio > 0 && (
-                  <span className="fc-section-badge-cost">
-                    Custo total: {formatBRL(calc.custoPedagio)}
-                  </span>
+                  <span className="fc-section-badge-cost">Custo total: {formatBRL(calc.custoPedagio)}</span>
                 )}
               </div>
               <div className="fc-grid fc-grid-2">
                 <div className="fc-field">
                   <label htmlFor="quantidadePedagios">Praças de Pedágio</label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                     <input id="quantidadePedagios" name="quantidadePedagios" type="number" min="0" step="1" placeholder="0" value={form.quantidadePedagios} onChange={handleChange} />
                     <span className="fc-unit">praças</span>
                   </div>
@@ -372,10 +385,7 @@ export default function FreightCalculator() {
                 <div className="fc-field">
                   <label htmlFor="valorMedioPorEixo">Valor Médio por Eixo</label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="1" x2="12" y2="23" />
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
                     <span className="fc-prefix">R$</span>
                     <input id="valorMedioPorEixo" name="valorMedioPorEixo" type="number" min="0" step="0.01" placeholder="0,00" value={form.valorMedioPorEixo} onChange={handleChange} className="has-prefix" />
                     <span className="fc-unit">/ eixo</span>
@@ -384,14 +394,10 @@ export default function FreightCalculator() {
               </div>
             </section>
 
-            {/* Carga e Receita */}
             <section className="fc-section">
               <div className="fc-section-label">
                 <span className="fc-section-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="1" x2="12" y2="23" />
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
                 </span>
                 Carga e Receita
               </div>
@@ -399,21 +405,14 @@ export default function FreightCalculator() {
                 <div className="fc-field">
                   <label htmlFor="tipoCarga">Tipo de Carga <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                      <line x1="12" y1="22.08" x2="12" y2="12" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
                     <input id="tipoCarga" name="tipoCarga" type="text" placeholder="Ex: Granel, Frigorificado..." value={form.tipoCarga} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="fc-field">
                   <label htmlFor="valorDiesel">Diesel S10 <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                     <span className="fc-prefix">R$</span>
                     <input id="valorDiesel" name="valorDiesel" type="number" min="0" step="0.01" placeholder="0,00" value={form.valorDiesel} onChange={handleChange} className="has-prefix" />
                     <span className="fc-unit">/ litro</span>
@@ -422,10 +421,7 @@ export default function FreightCalculator() {
                 <div className="fc-field">
                   <label htmlFor="valorPorTonelada">Valor por Tonelada <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="1" x2="12" y2="23" />
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </svg>
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
                     <span className="fc-prefix">R$</span>
                     <input id="valorPorTonelada" name="valorPorTonelada" type="number" min="0" step="0.01" placeholder="0,00" value={form.valorPorTonelada} onChange={handleChange} className="has-prefix" />
                     <span className="fc-unit">/ ton</span>
@@ -443,13 +439,10 @@ export default function FreightCalculator() {
                 Limpar Campos
               </button>
             </div>
-
           </form>
         </div>
 
-        {/* ── Coluna Direita ── */}
         <aside className="fc-panel-col">
-
           <div className={`fc-proj-card ${calc.prontoProjecao ? 'fc-proj-card--active' : ''}`}>
             <div className="fc-proj-top">
               <span className="fc-proj-eyebrow">Projeção de Lucratividade</span>
@@ -482,9 +475,7 @@ export default function FreightCalculator() {
               </div>
             </div>
             {!calc.prontoProjecao && (
-              <p className="fc-proj-hint">
-                Preencha todos os campos obrigatórios para ver as projeções
-              </p>
+              <p className="fc-proj-hint">Preencha todos os campos obrigatórios para ver as projeções</p>
             )}
           </div>
 
@@ -497,28 +488,16 @@ export default function FreightCalculator() {
             </div>
             <div className="fc-breakdown-list">
               <div className="fc-breakdown-row">
-                <div className="fc-breakdown-label">
-                  <span className="fc-dot fc-dot--revenue" />Faturamento Bruto
-                </div>
-                <span className="fc-breakdown-value">
-                  {calc.prontoViagem ? formatBRL(calc.faturamentoBruto) : DASH}
-                </span>
+                <div className="fc-breakdown-label"><span className="fc-dot fc-dot--revenue" />Faturamento Bruto</div>
+                <span className="fc-breakdown-value">{calc.prontoViagem ? formatBRL(calc.faturamentoBruto) : DASH}</span>
               </div>
               <div className="fc-breakdown-row">
-                <div className="fc-breakdown-label">
-                  <span className="fc-dot fc-dot--fuel" />− Combustível
-                </div>
-                <span className="fc-breakdown-value fc-breakdown-value--cost">
-                  {calc.prontoViagem ? formatBRL(calc.gastoCombustivel) : DASH}
-                </span>
+                <div className="fc-breakdown-label"><span className="fc-dot fc-dot--fuel" />− Combustível</div>
+                <span className="fc-breakdown-value fc-breakdown-value--cost">{calc.prontoViagem ? formatBRL(calc.gastoCombustivel) : DASH}</span>
               </div>
               <div className="fc-breakdown-row">
-                <div className="fc-breakdown-label">
-                  <span className="fc-dot fc-dot--toll" />− Pedágio
-                </div>
-                <span className="fc-breakdown-value fc-breakdown-value--cost">
-                  {calc.prontoViagem ? formatBRL(calc.custoPedagio) : DASH}
-                </span>
+                <div className="fc-breakdown-label"><span className="fc-dot fc-dot--toll" />− Pedágio</div>
+                <span className="fc-breakdown-value fc-breakdown-value--cost">{calc.prontoViagem ? formatBRL(calc.custoPedagio) : DASH}</span>
               </div>
               <div className="fc-breakdown-sep" />
               <div className="fc-breakdown-row fc-breakdown-row--total">
@@ -526,18 +505,13 @@ export default function FreightCalculator() {
                   <span className={`fc-dot ${calc.prontoViagem && calc.lucroLiquido < 0 ? 'fc-dot--negative' : 'fc-dot--profit'}`} />
                   = Lucro Líquido
                 </div>
-                <span className={`fc-breakdown-value fc-breakdown-value--total ${
-                  calc.prontoViagem ? (calc.lucroLiquido >= 0 ? 'fc-breakdown-value--profit' : 'fc-breakdown-value--negative') : ''
-                }`}>
+                <span className={`fc-breakdown-value fc-breakdown-value--total ${calc.prontoViagem ? (calc.lucroLiquido >= 0 ? 'fc-breakdown-value--profit' : 'fc-breakdown-value--negative') : ''}`}>
                   {calc.prontoViagem ? formatBRL(calc.lucroLiquido) : DASH}
                 </span>
               </div>
             </div>
-            {calc.prontoViagem && (
-              <div className="fc-breakdown-footer">Faturamento − Combustível − Pedágio</div>
-            )}
+            {calc.prontoViagem && <div className="fc-breakdown-footer">Faturamento − Combustível − Pedágio</div>}
           </div>
-
         </aside>
       </div>
 
