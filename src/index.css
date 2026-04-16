@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 *,
 *::before,
 *::after {
@@ -7,8 +11,10 @@
 }
 
 body {
-  background: #f0f4f8;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #111118;
+  font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  color: #e2e8f0;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -16,3 +22,82 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0d0d14; }
+::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #f59e0b; }
+
+/* ── Select options (tax calculator) ── */
+select option { background: #1e1e2c; color: #e2e8f0; }
+
+/* ── Input base + glow on focus (tax calculator) ── */
+.input-glow {
+  background: #1c1c28;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  color: #e2e8f0;
+}
+.input-glow:focus {
+  outline: none;
+  background: #20202e;
+  border-color: rgba(245, 158, 11, 0.55);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+/* ── Button press effect ── */
+.btn-press:active {
+  transform: scale(0.97);
+  filter: brightness(0.92);
+}
+
+/* ── Card hover lift ── */
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.2); }
+  50%       { box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
+}
+
+.anim-up   { animation: fadeUp 0.32s ease-out both; }
+.anim-up-2 { animation: fadeUp 0.32s 0.06s ease-out both; }
+.anim-up-3 { animation: fadeUp 0.32s 0.12s ease-out both; }
+
+.gradient-text {
+  background: linear-gradient(135deg, #f59e0b, #fcd34d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glass card ── */
+.glass {
+  background: #181824;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Login shake ── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+.shake { animation: shake 0.4s ease-out; }
