@@ -36,15 +36,21 @@ export default function FreightCalculator() {
     const diesel = parseFloat(form.valorDiesel) || 0
     const capacidade = parseFloat(form.capacidadeCarga) || 0
     const valorTon = parseFloat(form.valorPorTonelada) || 0
+    const viagens = parseFloat(form.viagensPorSemana) || 0
 
     const gastoCombustivel = consumo > 0 ? (distancia / consumo) * diesel : 0
     const faturamentoBruto = capacidade * valorTon
     const lucroLiquido = faturamentoBruto - gastoCombustivel
 
-    const pronto = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
+    const lucroSemanal = lucroLiquido * viagens
+    const lucroDiario = lucroSemanal / 5
+    const lucroMensal = lucroDiario * 22
 
-    return { gastoCombustivel, faturamentoBruto, lucroLiquido, pronto }
-  }, [form.distanciaKm, form.mediaConsumo, form.valorDiesel, form.capacidadeCarga, form.valorPorTonelada])
+    const pronto = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
+    const projecaoPronta = pronto && viagens > 0
+
+    return { gastoCombustivel, faturamentoBruto, lucroLiquido, lucroSemanal, lucroDiario, lucroMensal, pronto, projecaoPronta }
+  }, [form.distanciaKm, form.mediaConsumo, form.valorDiesel, form.capacidadeCarga, form.valorPorTonelada, form.viagensPorSemana])
 
   return (
     <div className="fc-wrapper">
@@ -419,6 +425,80 @@ export default function FreightCalculator() {
                   {resultados.pronto ? formatBRL(resultados.lucroLiquido) : '—'}
                 </span>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Seção: Projeção de Lucratividade */}
+        <section className={`fc-projection ${resultados.projecaoPronta ? 'fc-projection--active' : ''}`}>
+          <div className="fc-projection-header">
+            <div className="fc-projection-title-wrap">
+              <span className="fc-projection-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                  <polyline points="17 6 23 6 23 12" />
+                </svg>
+              </span>
+              <div>
+                <h2 className="fc-projection-title">Projeção de Lucratividade</h2>
+                <p className="fc-projection-subtitle">
+                  Baseado em {resultados.projecaoPronta ? `${form.viagensPorSemana} viagem(ns)/semana · 5 dias úteis · 22 dias úteis/mês` : 'preencha todos os campos numéricos + viagens por semana'}
+                </p>
+              </div>
+            </div>
+            {resultados.projecaoPronta && (
+              <div className={`fc-projection-badge ${resultados.lucroMensal < 0 ? 'fc-projection-badge--loss' : ''}`}>
+                {resultados.lucroMensal >= 0 ? 'Operação Lucrativa' : 'Operação Deficitária'}
+              </div>
+            )}
+          </div>
+
+          <div className="fc-projection-body">
+            {/* Lucro Diário — auxiliar */}
+            <div className="fc-projection-aux">
+              <span className="fc-projection-aux-label">Lucro Diário</span>
+              <span className="fc-projection-aux-value">
+                {resultados.projecaoPronta ? formatBRL(resultados.lucroDiario) : '—'}
+              </span>
+              <span className="fc-projection-aux-desc">Lucro Semanal ÷ 5 dias úteis</span>
+            </div>
+
+            <div className="fc-projection-divider" />
+
+            {/* Lucro Semanal */}
+            <div className={`fc-projection-kpi ${resultados.projecaoPronta && resultados.lucroSemanal < 0 ? 'fc-projection-kpi--negative' : 'fc-projection-kpi--weekly'}`}>
+              <div className="fc-projection-kpi-top">
+                <span className="fc-projection-kpi-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4M8 2v4M3 10h18" />
+                  </svg>
+                </span>
+                <span className="fc-projection-kpi-label">Lucro Semanal</span>
+              </div>
+              <span className="fc-projection-kpi-value">
+                {resultados.projecaoPronta ? formatBRL(resultados.lucroSemanal) : '—'}
+              </span>
+              <span className="fc-projection-kpi-desc">
+                Lucro da Viagem × {resultados.projecaoPronta ? form.viagensPorSemana : '?'} viagens
+              </span>
+            </div>
+
+            {/* Lucro Mensal */}
+            <div className={`fc-projection-kpi fc-projection-kpi--main ${resultados.projecaoPronta && resultados.lucroMensal < 0 ? 'fc-projection-kpi--negative' : 'fc-projection-kpi--monthly'}`}>
+              <div className="fc-projection-kpi-top">
+                <span className="fc-projection-kpi-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </span>
+                <span className="fc-projection-kpi-label">Lucro Mensal</span>
+              </div>
+              <span className="fc-projection-kpi-value">
+                {resultados.projecaoPronta ? formatBRL(resultados.lucroMensal) : '—'}
+              </span>
+              <span className="fc-projection-kpi-desc">Lucro Diário × 22 dias úteis</span>
             </div>
           </div>
         </section>

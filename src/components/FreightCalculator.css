@@ -468,6 +468,239 @@
   font-size: 28px;
 }
 
+/* ===== Projeção de Lucratividade ===== */
+.fc-projection {
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0f2744 0%, #1a3a5c 50%, #1e4f80 100%);
+  padding: 28px 32px;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(15, 39, 68, 0.35);
+  transition: box-shadow 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.fc-projection::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top right, rgba(36, 119, 192, 0.25) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.fc-projection--active {
+  box-shadow: 0 8px 40px rgba(15, 39, 68, 0.5), 0 0 0 1px rgba(36, 119, 192, 0.3);
+}
+
+/* Header da projeção */
+.fc-projection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.fc-projection-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fc-projection-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.fc-projection-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.fc-projection-title {
+  margin: 0 0 3px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.fc-projection-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+}
+
+.fc-projection-badge {
+  flex-shrink: 0;
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #86efac;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.fc-projection-badge--loss {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+/* Body com os KPIs */
+.fc-projection-body {
+  display: grid;
+  grid-template-columns: auto 1px 1fr 1fr;
+  gap: 0 28px;
+  align-items: center;
+}
+
+.fc-projection-divider {
+  width: 1px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  align-self: stretch;
+}
+
+/* Auxiliar: Lucro Diário */
+.fc-projection-aux {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.fc-projection-aux-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.fc-projection-aux-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: -0.5px;
+}
+
+.fc-projection-aux-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* KPI Cards */
+.fc-projection-kpi {
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid transparent;
+}
+
+.fc-projection-kpi--weekly {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.fc-projection-kpi--monthly {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.fc-projection-kpi--negative {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.fc-projection-kpi-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-projection-kpi-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fc-projection-kpi--weekly .fc-projection-kpi-icon {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fde68a;
+}
+
+.fc-projection-kpi--monthly .fc-projection-kpi-icon {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.fc-projection-kpi--negative .fc-projection-kpi-icon {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.fc-projection-kpi-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fc-projection-kpi-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.fc-projection-kpi--weekly .fc-projection-kpi-label { color: #fde68a; }
+.fc-projection-kpi--monthly .fc-projection-kpi-label { color: #86efac; }
+.fc-projection-kpi--negative .fc-projection-kpi-label { color: #fca5a5; }
+
+.fc-projection-kpi-value {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.fc-projection-kpi--weekly .fc-projection-kpi-value { color: #fef3c7; }
+.fc-projection-kpi--monthly .fc-projection-kpi-value { color: #dcfce7; }
+.fc-projection-kpi--negative .fc-projection-kpi-value { color: #fee2e2; }
+
+.fc-projection-kpi--main .fc-projection-kpi-value {
+  font-size: 38px;
+}
+
+.fc-projection-kpi-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+/* Placeholder (—) */
+.fc-projection:not(.fc-projection--active) .fc-projection-aux-value,
+.fc-projection:not(.fc-projection--active) .fc-projection-kpi-value {
+  color: rgba(255, 255, 255, 0.2);
+}
+
 /* ===== Footer ===== */
 .fc-footer {
   display: flex;
@@ -503,6 +736,30 @@
   .fc-results-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .fc-projection-body {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .fc-projection-aux {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+    padding-right: 0;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 4px;
+  }
+
+  .fc-projection-aux-desc {
+    margin-left: auto;
+  }
+
+  .fc-projection-divider {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -528,6 +785,24 @@
   .fc-grid-3,
   .fc-results-grid {
     grid-template-columns: 1fr;
+  }
+
+  .fc-projection {
+    padding: 20px;
+  }
+
+  .fc-projection-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: unset;
+  }
+
+  .fc-projection-kpi--main .fc-projection-kpi-value {
+    font-size: 32px;
+  }
+
+  .fc-projection-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .fc-actions {
