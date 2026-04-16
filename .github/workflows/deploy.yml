@@ -29,6 +29,8 @@ jobs:
 
       - run: npm install
       - run: npm run build
+        env:
+          VITE_GOOGLE_MAPS_KEY: ${{ secrets.VITE_GOOGLE_MAPS_KEY }}
 
       - uses: actions/configure-pages@v4
 

@@ -2,12 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { Loader } from '@googlemaps/js-api-loader'
 import './FreightCalculator.css'
 
-const mapsLoader = new Loader({
-  apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
-  version: 'weekly',
-  libraries: ['places'],
-})
-
 function formatBRL(value) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -75,11 +69,16 @@ export default function FreightCalculator() {
   }
 
   useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY
+    if (!apiKey) return
+
+    const loader = new Loader({ apiKey, version: 'weekly', libraries: ['places'] })
     const opts = {
       componentRestrictions: { country: 'br' },
       fields: ['geometry', 'name', 'formatted_address'],
     }
-    mapsLoader.load().then((google) => {
+
+    loader.load().then((google) => {
       const acOrigem  = new google.maps.places.Autocomplete(origemRef.current,  opts)
       const acDestino = new google.maps.places.Autocomplete(destinoRef.current, opts)
 
@@ -100,7 +99,7 @@ export default function FreightCalculator() {
         setDistAutoFill(false)
         calcularDistancia(google)
       })
-    })
+    }).catch(() => {}) // falha silenciosa se chave inválida
   }, [])
 
   const calc = useMemo(() => {
