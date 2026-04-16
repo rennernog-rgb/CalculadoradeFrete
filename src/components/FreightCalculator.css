@@ -1,0 +1,389 @@
+/* ===== Reset e Base ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ===== Wrapper Principal ===== */
+.fc-wrapper {
+  min-height: 100vh;
+  background: #f0f4f8;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ===== Header ===== */
+.fc-header {
+  background: linear-gradient(135deg, #1a3a5c 0%, #1e5f9a 60%, #2477c0 100%);
+  color: #fff;
+  padding: 28px 40px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 4px 20px rgba(26, 58, 92, 0.35);
+}
+
+.fc-header-icon {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.fc-header-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.fc-header-text {
+  flex: 1;
+}
+
+.fc-header-text h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.fc-header-text p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 400;
+}
+
+.fc-header-badge {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== Form ===== */
+.fc-form {
+  flex: 1;
+  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ===== Seções ===== */
+.fc-section {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px 28px 28px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+}
+
+.fc-section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #1a3a5c;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #e8f0fb;
+}
+
+.fc-section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: #e8f0fb;
+  border-radius: 8px;
+}
+
+.fc-section-icon svg {
+  width: 16px;
+  height: 16px;
+  color: #1e5f9a;
+}
+
+/* ===== Grid ===== */
+.fc-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.fc-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.fc-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* ===== Campo Individual ===== */
+.fc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.fc-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.fc-required {
+  color: #e53e3e;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ===== Input Wrapper ===== */
+.fc-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.fc-input-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  pointer-events: none;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.fc-prefix {
+  position: absolute;
+  left: 36px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.fc-unit {
+  position: absolute;
+  right: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ===== Inputs ===== */
+.fc-input-wrap input {
+  width: 100%;
+  height: 44px;
+  padding: 0 70px 0 36px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e293b;
+  font-family: inherit;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.fc-input-wrap input::-webkit-outer-spin-button,
+.fc-input-wrap input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fc-input-wrap input:focus {
+  border-color: #1e5f9a;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(30, 95, 154, 0.12);
+}
+
+.fc-input-wrap input::placeholder {
+  color: #c0cbd8;
+  font-weight: 400;
+}
+
+.fc-input-wrap input.has-prefix {
+  padding-left: 56px;
+}
+
+/* Input sem unidade à direita */
+.fc-input-wrap input[name="origem"],
+.fc-input-wrap input[name="destino"],
+.fc-input-wrap input[name="tipoCarga"] {
+  padding-right: 14px;
+}
+
+/* ===== Hover nos campos ===== */
+.fc-field:hover .fc-input-wrap input:not(:focus) {
+  border-color: #93b8d8;
+  background: #fff;
+}
+
+/* ===== Botões de Ação ===== */
+.fc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.fc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 26px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.1s;
+}
+
+.fc-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.fc-btn-ghost {
+  background: #fff;
+  color: #64748b;
+  border: 1.5px solid #e2e8f0;
+}
+
+.fc-btn-ghost:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #374151;
+}
+
+.fc-btn-ghost:active {
+  transform: scale(0.98);
+}
+
+.fc-btn-primary {
+  background: linear-gradient(135deg, #1a3a5c 0%, #1e5f9a 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(30, 95, 154, 0.3);
+}
+
+.fc-btn-primary:not(:disabled):hover {
+  background: linear-gradient(135deg, #1e4a72 0%, #2477c0 100%);
+  box-shadow: 0 6px 18px rgba(30, 95, 154, 0.4);
+  transform: translateY(-1px);
+}
+
+.fc-btn-primary:not(:disabled):active {
+  transform: translateY(0) scale(0.98);
+}
+
+.fc-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ===== Footer ===== */
+.fc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 40px;
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ===== Responsividade ===== */
+@media (max-width: 900px) {
+  .fc-header {
+    padding: 20px 24px;
+    flex-wrap: wrap;
+  }
+
+  .fc-header-badge {
+    display: none;
+  }
+
+  .fc-form {
+    padding: 20px 24px;
+  }
+
+  .fc-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .fc-header {
+    padding: 16px 20px;
+    gap: 14px;
+  }
+
+  .fc-header-text h1 {
+    font-size: 20px;
+  }
+
+  .fc-form {
+    padding: 16px 20px;
+    gap: 20px;
+  }
+
+  .fc-section {
+    padding: 18px 16px 20px;
+  }
+
+  .fc-grid-2,
+  .fc-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .fc-actions {
+    flex-direction: column-reverse;
+  }
+
+  .fc-btn {
+    justify-content: center;
+  }
+
+  .fc-footer {
+    padding: 14px 20px;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+}
