@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import './FreightCalculator.css'
 
 function formatBRL(value) {
@@ -43,10 +42,13 @@ export default function FreightCalculator() {
       setMapsError('Chave de API não configurada.')
       return
     }
-    setOptions({ apiKey: API_KEY, version: 'weekly' })
-    importLibrary('maps')
-      .then(() => setMapsReady(true))
-      .catch((err) => setMapsError('Erro ao carregar Google Maps: ' + (err?.message ?? String(err))))
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=routes`
+    script.async = true
+    script.onload  = () => setMapsReady(true)
+    script.onerror = () => setMapsError('Erro ao carregar o script do Google Maps.')
+    document.head.appendChild(script)
+    return () => { if (document.head.contains(script)) document.head.removeChild(script) }
   }, [])
 
   async function buscarSugestoes(value, setSuggs) {
@@ -132,26 +134,28 @@ export default function FreightCalculator() {
     calcularDistancia()
   }
 
-  async function calcularDistancia() {
+  function calcularDistancia() {
     if (!origemPlace.current || !destinoPlace.current) return
+    if (!window.google?.maps?.DistanceMatrixService) return
     setLoadingDist(true)
-    try {
-      const { DirectionsService } = await importLibrary('routes')
-      const svc = new DirectionsService()
-      const result = await svc.route({
-        origin:      origemPlace.current,
-        destination: destinoPlace.current,
-        travelMode:  'DRIVING',
-      })
-      const distM = result.routes[0].legs[0].distance.value
-      setForm(prev => ({ ...prev, distanciaKm: (distM / 1000).toFixed(1) }))
-      setDistAutoFill(true)
-      setMapsError('')
-    } catch (err) {
-      setMapsError('Directions: ' + (err?.message ?? String(err)))
-    } finally {
-      setLoadingDist(false)
-    }
+    const svc = new window.google.maps.DistanceMatrixService()
+    svc.getDistanceMatrix(
+      {
+        origins:      [origemPlace.current],
+        destinations: [destinoPlace.current],
+        travelMode:   window.google.maps.TravelMode.DRIVING,
+        unitSystem:   window.google.maps.UnitSystem.METRIC,
+      },
+      (res, status) => {
+        setLoadingDist(false)
+        if (status !== 'OK') { setMapsError('Distance Matrix: ' + status); return }
+        const el = res.rows[0].elements[0]
+        if (el.status !== 'OK') { setMapsError('Rota inválida: ' + el.status); return }
+        setForm(prev => ({ ...prev, distanciaKm: (el.distance.value / 1000).toFixed(1) }))
+        setDistAutoFill(true)
+        setMapsError('')
+      }
+    )
   }
 
   const calc = useMemo(() => {
