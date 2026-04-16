@@ -25,15 +25,17 @@ const initialState = {
 
 export default function FreightCalculator() {
   const [form, setForm] = useState(initialState)
-  const [loadingDist, setLoadingDist]   = useState(false)
-  const [distAutoFill, setDistAutoFill] = useState(false)
+  const [loadingDist, setLoadingDist]         = useState(false)
+  const [distAutoFill, setDistAutoFill]       = useState(false)
+  const [origemSuggs, setOrigemSuggs]         = useState([])
+  const [destinoSuggs, setDestinoSuggs]       = useState([])
 
-  const origemRef     = useRef(null)
-  const destinoRef    = useRef(null)
-  const origemPlace   = useRef(null)
-  const destinoPlace  = useRef(null)
-  const origemACElem  = useRef(null)
-  const destinoACElem = useRef(null)
+  const origemPlace      = useRef(null)
+  const destinoPlace     = useRef(null)
+  const acServiceRef     = useRef(null)
+  const placesServiceRef = useRef(null)
+  const origemTimer      = useRef(null)
+  const destinoTimer     = useRef(null)
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -45,8 +47,8 @@ export default function FreightCalculator() {
     setForm(initialState)
     origemPlace.current  = null
     destinoPlace.current = null
-    if (origemACElem.current)  origemACElem.current.value  = ''
-    if (destinoACElem.current) destinoACElem.current.value = ''
+    setOrigemSuggs([])
+    setDestinoSuggs([])
     setLoadingDist(false)
     setDistAutoFill(false)
   }
@@ -77,45 +79,66 @@ export default function FreightCalculator() {
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY
     if (!apiKey) return
-
     setOptions({ apiKey, version: 'weekly' })
-
-    importLibrary('places').then(({ PlaceAutocompleteElement }) => {
-      if (!origemRef.current || !destinoRef.current) return
-
-      const opts = { componentRestrictions: { country: 'br' } }
-
-      const acOrigem  = new PlaceAutocompleteElement(opts)
-      const acDestino = new PlaceAutocompleteElement(opts)
-
-      acOrigem.placeholder  = 'Ex: São Paulo, SP'
-      acDestino.placeholder = 'Ex: Rio de Janeiro, RJ'
-
-      origemRef.current.appendChild(acOrigem)
-      destinoRef.current.appendChild(acDestino)
-
-      origemACElem.current  = acOrigem
-      destinoACElem.current = acDestino
-
-      acOrigem.addEventListener('gmp-placeselect', async ({ place }) => {
-        await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] })
-        if (!place.location) return
-        origemPlace.current = place
-        setForm(prev => ({ ...prev, origem: place.displayName || place.formattedAddress || '' }))
-        setDistAutoFill(false)
-        calcularDistancia()
-      })
-
-      acDestino.addEventListener('gmp-placeselect', async ({ place }) => {
-        await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] })
-        if (!place.location) return
-        destinoPlace.current = place
-        setForm(prev => ({ ...prev, destino: place.displayName || place.formattedAddress || '' }))
-        setDistAutoFill(false)
-        calcularDistancia()
-      })
+    importLibrary('places').then(({ AutocompleteService, PlacesService }) => {
+      acServiceRef.current     = new AutocompleteService()
+      placesServiceRef.current = new PlacesService(document.createElement('div'))
     }).catch(() => {})
   }, [])
+
+  function buscarSugestoes(value, setSuggs) {
+    if (!value || !acServiceRef.current) { setSuggs([]); return }
+    acServiceRef.current.getPlacePredictions(
+      { input: value, componentRestrictions: { country: 'br' } },
+      (predictions, status) => setSuggs(status === 'OK' ? predictions : [])
+    )
+  }
+
+  function handleOrigemChange(e) {
+    const { value } = e.target
+    setForm(prev => ({ ...prev, origem: value }))
+    origemPlace.current = null
+    setDistAutoFill(false)
+    clearTimeout(origemTimer.current)
+    origemTimer.current = setTimeout(() => buscarSugestoes(value, setOrigemSuggs), 300)
+  }
+
+  function handleDestinoChange(e) {
+    const { value } = e.target
+    setForm(prev => ({ ...prev, destino: value }))
+    destinoPlace.current = null
+    setDistAutoFill(false)
+    clearTimeout(destinoTimer.current)
+    destinoTimer.current = setTimeout(() => buscarSugestoes(value, setDestinoSuggs), 300)
+  }
+
+  function selecionarOrigem(prediction) {
+    setForm(prev => ({ ...prev, origem: prediction.description }))
+    setOrigemSuggs([])
+    if (!placesServiceRef.current) return
+    placesServiceRef.current.getDetails(
+      { placeId: prediction.place_id, fields: ['geometry'] },
+      (place, status) => {
+        if (status !== 'OK' || !place?.geometry?.location) return
+        origemPlace.current = { location: place.geometry.location }
+        calcularDistancia()
+      }
+    )
+  }
+
+  function selecionarDestino(prediction) {
+    setForm(prev => ({ ...prev, destino: prediction.description }))
+    setDestinoSuggs([])
+    if (!placesServiceRef.current) return
+    placesServiceRef.current.getDetails(
+      { placeId: prediction.place_id, fields: ['geometry'] },
+      (place, status) => {
+        if (status !== 'OK' || !place?.geometry?.location) return
+        destinoPlace.current = { location: place.geometry.location }
+        calcularDistancia()
+      }
+    )
+  }
 
   const calc = useMemo(() => {
     const distancia   = parseFloat(form.distanciaKm)      || 0
@@ -137,7 +160,7 @@ export default function FreightCalculator() {
     const lucroDiario  = viagens > 0 ? lucroSemanal / 5 : 0
     const lucroMensal  = lucroDiario * 22
 
-    const prontoViagem  = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
+    const prontoViagem   = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
     const prontoProjecao = prontoViagem && viagens > 0
 
     return {
@@ -192,14 +215,63 @@ export default function FreightCalculator() {
                 Informações da Rota
               </div>
               <div className="fc-grid fc-grid-2">
+
+                {/* Origem */}
                 <div className="fc-field">
-                  <label>Origem <span className="fc-required">*</span></label>
-                  <div ref={origemRef} className="fc-ac-wrap" />
+                  <label htmlFor="origem">Origem <span className="fc-required">*</span></label>
+                  <div className="fc-input-wrap fc-autocomplete-wrap">
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="10" r="3" />
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                    </svg>
+                    <input
+                      id="origem" name="origem" type="text"
+                      placeholder="Ex: São Paulo, SP"
+                      value={form.origem}
+                      onChange={handleOrigemChange}
+                      onBlur={() => setTimeout(() => setOrigemSuggs([]), 200)}
+                      autoComplete="off"
+                    />
+                    {origemSuggs.length > 0 && (
+                      <ul className="fc-sugg-list">
+                        {origemSuggs.map(s => (
+                          <li key={s.place_id} onMouseDown={() => selecionarOrigem(s)}>
+                            <span className="fc-sugg-main">{s.structured_formatting.main_text}</span>
+                            <span className="fc-sugg-sub">{s.structured_formatting.secondary_text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
 
+                {/* Destino */}
                 <div className="fc-field">
-                  <label>Destino <span className="fc-required">*</span></label>
-                  <div ref={destinoRef} className="fc-ac-wrap" />
+                  <label htmlFor="destino">Destino <span className="fc-required">*</span></label>
+                  <div className="fc-input-wrap fc-autocomplete-wrap">
+                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                      <circle cx="12" cy="9" r="2.5" fill="currentColor" />
+                    </svg>
+                    <input
+                      id="destino" name="destino" type="text"
+                      placeholder="Ex: Rio de Janeiro, RJ"
+                      value={form.destino}
+                      onChange={handleDestinoChange}
+                      onBlur={() => setTimeout(() => setDestinoSuggs([]), 200)}
+                      autoComplete="off"
+                    />
+                    {destinoSuggs.length > 0 && (
+                      <ul className="fc-sugg-list">
+                        {destinoSuggs.map(s => (
+                          <li key={s.place_id} onMouseDown={() => selecionarDestino(s)}>
+                            <span className="fc-sugg-main">{s.structured_formatting.main_text}</span>
+                            <span className="fc-sugg-sub">{s.structured_formatting.secondary_text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
 
                 <div className="fc-field">
@@ -483,9 +555,7 @@ export default function FreightCalculator() {
                   − Pedágio
                 </div>
                 <span className="fc-breakdown-value fc-breakdown-value--cost">
-                  {calc.prontoViagem
-                    ? formatBRL(calc.custoPedagio)
-                    : DASH}
+                  {calc.prontoViagem ? formatBRL(calc.custoPedagio) : DASH}
                 </span>
               </div>
 
