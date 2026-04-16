@@ -28,10 +28,12 @@ export default function FreightCalculator() {
   const [loadingDist, setLoadingDist]   = useState(false)
   const [distAutoFill, setDistAutoFill] = useState(false)
 
-  const origemRef    = useRef(null)
-  const destinoRef   = useRef(null)
-  const origemPlace  = useRef(null)
-  const destinoPlace = useRef(null)
+  const origemRef     = useRef(null)
+  const destinoRef    = useRef(null)
+  const origemPlace   = useRef(null)
+  const destinoPlace  = useRef(null)
+  const origemACElem  = useRef(null)
+  const destinoACElem = useRef(null)
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -43,19 +45,21 @@ export default function FreightCalculator() {
     setForm(initialState)
     origemPlace.current  = null
     destinoPlace.current = null
+    if (origemACElem.current)  origemACElem.current.value  = ''
+    if (destinoACElem.current) destinoACElem.current.value = ''
     setLoadingDist(false)
     setDistAutoFill(false)
   }
 
   function calcularDistancia() {
-    if (!origemPlace.current?.geometry || !destinoPlace.current?.geometry) return
+    if (!origemPlace.current?.location || !destinoPlace.current?.location) return
     const g = window.google
     if (!g) return
     setLoadingDist(true)
     new g.maps.DistanceMatrixService().getDistanceMatrix(
       {
-        origins:      [origemPlace.current.geometry.location],
-        destinations: [destinoPlace.current.geometry.location],
+        origins:      [origemPlace.current.location],
+        destinations: [destinoPlace.current.location],
         travelMode:   g.maps.TravelMode.DRIVING,
         unitSystem:   g.maps.UnitSystem.METRIC,
       },
@@ -74,31 +78,39 @@ export default function FreightCalculator() {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY
     if (!apiKey) return
 
-    const opts = {
-      componentRestrictions: { country: 'br' },
-      fields: ['geometry', 'name', 'formatted_address'],
-    }
-
     setOptions({ apiKey, version: 'weekly' })
 
-    importLibrary('places').then(({ Autocomplete }) => {
-      const acOrigem  = new Autocomplete(origemRef.current,  opts)
-      const acDestino = new Autocomplete(destinoRef.current, opts)
+    importLibrary('places').then(({ PlaceAutocompleteElement }) => {
+      if (!origemRef.current || !destinoRef.current) return
 
-      acOrigem.addListener('place_changed', () => {
-        const p = acOrigem.getPlace()
-        if (!p.geometry) return
-        origemPlace.current = p
-        setForm(prev => ({ ...prev, origem: p.name || p.formatted_address }))
+      const opts = { componentRestrictions: { country: 'br' } }
+
+      const acOrigem  = new PlaceAutocompleteElement(opts)
+      const acDestino = new PlaceAutocompleteElement(opts)
+
+      acOrigem.placeholder  = 'Ex: São Paulo, SP'
+      acDestino.placeholder = 'Ex: Rio de Janeiro, RJ'
+
+      origemRef.current.appendChild(acOrigem)
+      destinoRef.current.appendChild(acDestino)
+
+      origemACElem.current  = acOrigem
+      destinoACElem.current = acDestino
+
+      acOrigem.addEventListener('gmp-placeselect', async ({ place }) => {
+        await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] })
+        if (!place.location) return
+        origemPlace.current = place
+        setForm(prev => ({ ...prev, origem: place.displayName || place.formattedAddress || '' }))
         setDistAutoFill(false)
         calcularDistancia()
       })
 
-      acDestino.addListener('place_changed', () => {
-        const p = acDestino.getPlace()
-        if (!p.geometry) return
-        destinoPlace.current = p
-        setForm(prev => ({ ...prev, destino: p.name || p.formatted_address }))
+      acDestino.addEventListener('gmp-placeselect', async ({ place }) => {
+        await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] })
+        if (!place.location) return
+        destinoPlace.current = place
+        setForm(prev => ({ ...prev, destino: place.displayName || place.formattedAddress || '' }))
         setDistAutoFill(false)
         calcularDistancia()
       })
@@ -181,25 +193,13 @@ export default function FreightCalculator() {
               </div>
               <div className="fc-grid fc-grid-2">
                 <div className="fc-field">
-                  <label htmlFor="origem">Origem <span className="fc-required">*</span></label>
-                  <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="10" r="3" />
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                    </svg>
-                    <input ref={origemRef} id="origem" name="origem" type="text" placeholder="Ex: São Paulo, SP" value={form.origem} onChange={handleChange} />
-                  </div>
+                  <label>Origem <span className="fc-required">*</span></label>
+                  <div ref={origemRef} className="fc-ac-wrap" />
                 </div>
 
                 <div className="fc-field">
-                  <label htmlFor="destino">Destino <span className="fc-required">*</span></label>
-                  <div className="fc-input-wrap">
-                    <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                      <circle cx="12" cy="9" r="2.5" fill="currentColor" />
-                    </svg>
-                    <input ref={destinoRef} id="destino" name="destino" type="text" placeholder="Ex: Rio de Janeiro, RJ" value={form.destino} onChange={handleChange} />
-                  </div>
+                  <label>Destino <span className="fc-required">*</span></label>
+                  <div ref={destinoRef} className="fc-ac-wrap" />
                 </div>
 
                 <div className="fc-field">

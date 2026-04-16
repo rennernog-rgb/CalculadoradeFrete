@@ -486,32 +486,27 @@
   text-align: center;
 }
 
-/* ── Google Maps Autocomplete ── */
-.pac-container {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  margin-top: 4px;
-  overflow: hidden;
-  z-index: 9999;
+/* ── Google Maps PlaceAutocompleteElement ── */
+.fc-ac-wrap {
+  width: 100%;
 }
 
-.pac-item {
-  padding: 10px 14px;
-  cursor: pointer;
-  border-top: 1px solid #f1f5f9;
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.4;
+.fc-ac-wrap gmp-place-autocomplete {
+  display: block;
+  width: 100%;
+  height: 42px;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  --gmp-font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --gmp-input-background-color: #f8fafc;
+  --gmp-input-border: 1.5px solid #e2e8f0;
+  --gmp-input-border-radius: 10px;
+  --gmp-input-padding: 0 14px;
+  --gmp-input-placeholder-color: #c0cbd8;
+  --gmp-input-text-color: #1e293b;
+  --gmp-input-focus-border: 1.5px solid #1e5f9a;
+  --gmp-input-focus-ring: 0 0 0 3px rgba(30, 95, 154, 0.1);
 }
-
-.pac-item:first-child { border-top: none; }
-.pac-item:hover, .pac-item-selected { background: #f0f4f8; }
-.pac-item-query { font-weight: 600; color: #1a3a5c; font-size: 13px; }
-.pac-matched { font-weight: 700; color: #1e5f9a; }
-.pac-icon { display: none; }
 
 /* Tag "Google Maps" ao lado do label */
 .fc-maps-tag {
