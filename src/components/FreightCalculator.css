@@ -486,6 +486,75 @@
   text-align: center;
 }
 
+/* ── Google Maps Autocomplete ── */
+.pac-container {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  margin-top: 4px;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.pac-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-top: 1px solid #f1f5f9;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.pac-item:first-child { border-top: none; }
+.pac-item:hover, .pac-item-selected { background: #f0f4f8; }
+.pac-item-query { font-weight: 600; color: #1a3a5c; font-size: 13px; }
+.pac-matched { font-weight: 700; color: #1e5f9a; }
+.pac-icon { display: none; }
+
+/* Tag "Google Maps" ao lado do label */
+.fc-maps-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e5f9a;
+  background: #e8f0fb;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 2px 7px;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+/* Input preenchido pelo Maps */
+.fc-input--autofill {
+  border-color: #1e5f9a !important;
+  background: #f0f7ff !important;
+}
+
+/* Spinner no lugar de "km" */
+.fc-unit-spin {
+  position: absolute;
+  right: 11px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.fc-unit-spin svg {
+  width: 14px;
+  height: 14px;
+  color: #1e5f9a;
+  animation: fc-spin 0.8s linear infinite;
+}
+
+@keyframes fc-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* ── FOOTER ── */
 .fc-footer {
   display: flex;

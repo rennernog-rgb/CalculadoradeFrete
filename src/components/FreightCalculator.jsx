@@ -1,5 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Loader } from '@googlemaps/js-api-loader'
 import './FreightCalculator.css'
+
+const mapsLoader = new Loader({
+  apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY,
+  version: 'weekly',
+  libraries: ['places'],
+})
 
 function formatBRL(value) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -24,15 +31,77 @@ const initialState = {
 
 export default function FreightCalculator() {
   const [form, setForm] = useState(initialState)
+  const [loadingDist, setLoadingDist]   = useState(false)
+  const [distAutoFill, setDistAutoFill] = useState(false)
+
+  const origemRef    = useRef(null)
+  const destinoRef   = useRef(null)
+  const origemPlace  = useRef(null)
+  const destinoPlace = useRef(null)
 
   function handleChange(e) {
     const { name, value } = e.target
+    if (name === 'distanciaKm') setDistAutoFill(false)
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
   function handleReset() {
     setForm(initialState)
+    origemPlace.current  = null
+    destinoPlace.current = null
+    setLoadingDist(false)
+    setDistAutoFill(false)
   }
+
+  function calcularDistancia(google) {
+    if (!origemPlace.current?.geometry || !destinoPlace.current?.geometry) return
+    setLoadingDist(true)
+    new google.maps.DistanceMatrixService().getDistanceMatrix(
+      {
+        origins:      [origemPlace.current.geometry.location],
+        destinations: [destinoPlace.current.geometry.location],
+        travelMode:   google.maps.TravelMode.DRIVING,
+        unitSystem:   google.maps.UnitSystem.METRIC,
+      },
+      (res, status) => {
+        setLoadingDist(false)
+        if (status !== 'OK') return
+        const el = res.rows[0].elements[0]
+        if (el.status !== 'OK') return
+        setForm(prev => ({ ...prev, distanciaKm: (el.distance.value / 1000).toFixed(1) }))
+        setDistAutoFill(true)
+      }
+    )
+  }
+
+  useEffect(() => {
+    const opts = {
+      componentRestrictions: { country: 'br' },
+      fields: ['geometry', 'name', 'formatted_address'],
+    }
+    mapsLoader.load().then((google) => {
+      const acOrigem  = new google.maps.places.Autocomplete(origemRef.current,  opts)
+      const acDestino = new google.maps.places.Autocomplete(destinoRef.current, opts)
+
+      acOrigem.addListener('place_changed', () => {
+        const p = acOrigem.getPlace()
+        if (!p.geometry) return
+        origemPlace.current = p
+        setForm(prev => ({ ...prev, origem: p.name || p.formatted_address }))
+        setDistAutoFill(false)
+        calcularDistancia(google)
+      })
+
+      acDestino.addListener('place_changed', () => {
+        const p = acDestino.getPlace()
+        if (!p.geometry) return
+        destinoPlace.current = p
+        setForm(prev => ({ ...prev, destino: p.name || p.formatted_address }))
+        setDistAutoFill(false)
+        calcularDistancia(google)
+      })
+    })
+  }, [])
 
   const calc = useMemo(() => {
     const distancia   = parseFloat(form.distanciaKm)      || 0
@@ -116,7 +185,7 @@ export default function FreightCalculator() {
                       <circle cx="12" cy="10" r="3" />
                       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                     </svg>
-                    <input id="origem" name="origem" type="text" placeholder="Ex: São Paulo, SP" value={form.origem} onChange={handleChange} />
+                    <input ref={origemRef} id="origem" name="origem" type="text" placeholder="Ex: São Paulo, SP" value={form.origem} onChange={handleChange} />
                   </div>
                 </div>
 
@@ -127,18 +196,33 @@ export default function FreightCalculator() {
                       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                       <circle cx="12" cy="9" r="2.5" fill="currentColor" />
                     </svg>
-                    <input id="destino" name="destino" type="text" placeholder="Ex: Rio de Janeiro, RJ" value={form.destino} onChange={handleChange} />
+                    <input ref={destinoRef} id="destino" name="destino" type="text" placeholder="Ex: Rio de Janeiro, RJ" value={form.destino} onChange={handleChange} />
                   </div>
                 </div>
 
                 <div className="fc-field">
-                  <label htmlFor="distanciaKm">Distância Total <span className="fc-required">*</span></label>
+                  <label htmlFor="distanciaKm">
+                    Distância Total <span className="fc-required">*</span>
+                    {distAutoFill && <span className="fc-maps-tag">Google Maps</span>}
+                  </label>
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M2 12h20M17 7l5 5-5 5" />
                     </svg>
-                    <input id="distanciaKm" name="distanciaKm" type="number" min="0" step="0.01" placeholder="0" value={form.distanciaKm} onChange={handleChange} />
-                    <span className="fc-unit">km</span>
+                    <input
+                      id="distanciaKm" name="distanciaKm" type="number"
+                      min="0" step="0.01" placeholder="0"
+                      value={form.distanciaKm} onChange={handleChange}
+                      className={distAutoFill ? 'fc-input--autofill' : ''}
+                    />
+                    {loadingDist
+                      ? <span className="fc-unit-spin">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                          </svg>
+                        </span>
+                      : <span className="fc-unit">km</span>
+                    }
                   </div>
                 </div>
 
