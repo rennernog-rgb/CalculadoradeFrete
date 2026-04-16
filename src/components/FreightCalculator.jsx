@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Loader } from '@googlemaps/js-api-loader'
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import './FreightCalculator.css'
 
 function formatBRL(value) {
@@ -43,10 +43,10 @@ export default function FreightCalculator() {
       setMapsError('Chave de API não configurada.')
       return
     }
-    const loader = new Loader({ apiKey: API_KEY, version: 'weekly' })
-    loader.load()
+    setOptions({ apiKey: API_KEY, version: 'weekly' })
+    importLibrary('maps')
       .then(() => setMapsReady(true))
-      .catch((err) => setMapsError('Erro ao carregar Google Maps: ' + err.message))
+      .catch((err) => setMapsError('Erro ao carregar Google Maps: ' + (err?.message ?? String(err))))
   }, [])
 
   async function buscarSugestoes(value, setSuggs) {
