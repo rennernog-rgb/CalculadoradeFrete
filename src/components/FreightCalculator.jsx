@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Loader } from '@googlemaps/js-api-loader'
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import './FreightCalculator.css'
 
 function formatBRL(value) {
@@ -47,15 +47,17 @@ export default function FreightCalculator() {
     setDistAutoFill(false)
   }
 
-  function calcularDistancia(google) {
+  function calcularDistancia() {
     if (!origemPlace.current?.geometry || !destinoPlace.current?.geometry) return
+    const g = window.google
+    if (!g) return
     setLoadingDist(true)
-    new google.maps.DistanceMatrixService().getDistanceMatrix(
+    new g.maps.DistanceMatrixService().getDistanceMatrix(
       {
         origins:      [origemPlace.current.geometry.location],
         destinations: [destinoPlace.current.geometry.location],
-        travelMode:   google.maps.TravelMode.DRIVING,
-        unitSystem:   google.maps.UnitSystem.METRIC,
+        travelMode:   g.maps.TravelMode.DRIVING,
+        unitSystem:   g.maps.UnitSystem.METRIC,
       },
       (res, status) => {
         setLoadingDist(false)
@@ -72,15 +74,16 @@ export default function FreightCalculator() {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY
     if (!apiKey) return
 
-    const loader = new Loader({ apiKey, version: 'weekly', libraries: ['places'] })
     const opts = {
       componentRestrictions: { country: 'br' },
       fields: ['geometry', 'name', 'formatted_address'],
     }
 
-    loader.load().then((google) => {
-      const acOrigem  = new google.maps.places.Autocomplete(origemRef.current,  opts)
-      const acDestino = new google.maps.places.Autocomplete(destinoRef.current, opts)
+    setOptions({ apiKey, version: 'weekly' })
+
+    importLibrary('places').then(({ Autocomplete }) => {
+      const acOrigem  = new Autocomplete(origemRef.current,  opts)
+      const acDestino = new Autocomplete(destinoRef.current, opts)
 
       acOrigem.addListener('place_changed', () => {
         const p = acOrigem.getPlace()
@@ -88,7 +91,7 @@ export default function FreightCalculator() {
         origemPlace.current = p
         setForm(prev => ({ ...prev, origem: p.name || p.formatted_address }))
         setDistAutoFill(false)
-        calcularDistancia(google)
+        calcularDistancia()
       })
 
       acDestino.addListener('place_changed', () => {
@@ -97,9 +100,9 @@ export default function FreightCalculator() {
         destinoPlace.current = p
         setForm(prev => ({ ...prev, destino: p.name || p.formatted_address }))
         setDistAutoFill(false)
-        calcularDistancia(google)
+        calcularDistancia()
       })
-    }).catch(() => {}) // falha silenciosa se chave inválida
+    }).catch(() => {})
   }, [])
 
   const calc = useMemo(() => {
