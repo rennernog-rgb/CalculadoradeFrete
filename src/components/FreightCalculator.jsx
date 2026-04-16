@@ -132,27 +132,26 @@ export default function FreightCalculator() {
     calcularDistancia()
   }
 
-  function calcularDistancia() {
+  async function calcularDistancia() {
     if (!origemPlace.current || !destinoPlace.current) return
-    if (!mapsReady || !window.google?.maps) return
     setLoadingDist(true)
-    const svc = new window.google.maps.DistanceMatrixService()
-    svc.getDistanceMatrix(
-      {
-        origins:      [origemPlace.current],
-        destinations: [destinoPlace.current],
-        travelMode:   window.google.maps.TravelMode.DRIVING,
-        unitSystem:   window.google.maps.UnitSystem.METRIC,
-      },
-      (res, status) => {
-        setLoadingDist(false)
-        if (status !== 'OK') { setMapsError('Distance Matrix: ' + status); return }
-        const el = res.rows[0].elements[0]
-        if (el.status !== 'OK') { setMapsError('Rota inválida: ' + el.status); return }
-        setForm(prev => ({ ...prev, distanciaKm: (el.distance.value / 1000).toFixed(1) }))
-        setDistAutoFill(true)
-      }
-    )
+    try {
+      const { DirectionsService } = await importLibrary('routes')
+      const svc = new DirectionsService()
+      const result = await svc.route({
+        origin:      origemPlace.current,
+        destination: destinoPlace.current,
+        travelMode:  'DRIVING',
+      })
+      const distM = result.routes[0].legs[0].distance.value
+      setForm(prev => ({ ...prev, distanciaKm: (distM / 1000).toFixed(1) }))
+      setDistAutoFill(true)
+      setMapsError('')
+    } catch (err) {
+      setMapsError('Directions: ' + (err?.message ?? String(err)))
+    } finally {
+      setLoadingDist(false)
+    }
   }
 
   const calc = useMemo(() => {
