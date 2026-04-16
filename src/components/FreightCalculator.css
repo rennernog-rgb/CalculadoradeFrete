@@ -621,7 +621,6 @@
   .fc-panel-col {
     position: static;
     top: unset;
-    order: -1;
   }
 
   .fc-header { padding: 16px 20px; }
