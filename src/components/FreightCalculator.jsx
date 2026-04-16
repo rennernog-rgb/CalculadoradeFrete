@@ -1,5 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import './FreightCalculator.css'
+
+function formatBRL(value) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
 
 const initialState = {
   origem: '',
@@ -25,6 +29,22 @@ export default function FreightCalculator() {
   function handleReset() {
     setForm(initialState)
   }
+
+  const resultados = useMemo(() => {
+    const distancia = parseFloat(form.distanciaKm) || 0
+    const consumo = parseFloat(form.mediaConsumo) || 0
+    const diesel = parseFloat(form.valorDiesel) || 0
+    const capacidade = parseFloat(form.capacidadeCarga) || 0
+    const valorTon = parseFloat(form.valorPorTonelada) || 0
+
+    const gastoCombustivel = consumo > 0 ? (distancia / consumo) * diesel : 0
+    const faturamentoBruto = capacidade * valorTon
+    const lucroLiquido = faturamentoBruto - gastoCombustivel
+
+    const pronto = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
+
+    return { gastoCombustivel, faturamentoBruto, lucroLiquido, pronto }
+  }, [form.distanciaKm, form.mediaConsumo, form.valorDiesel, form.capacidadeCarga, form.valorPorTonelada])
 
   return (
     <div className="fc-wrapper">
@@ -331,13 +351,77 @@ export default function FreightCalculator() {
             </svg>
             Limpar Campos
           </button>
-          <button type="button" className="fc-btn fc-btn-primary" disabled>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-            </svg>
-            Calcular Frete
-          </button>
         </div>
+
+        {/* Seção: Resultados */}
+        <section className={`fc-results ${resultados.pronto ? 'fc-results--active' : ''}`}>
+          <div className="fc-section-label">
+            <span className="fc-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </span>
+            Resultados da Viagem
+            {!resultados.pronto && (
+              <span className="fc-results-hint">Preencha os campos numéricos para ver os resultados</span>
+            )}
+          </div>
+
+          <div className="fc-results-grid">
+            {/* Gasto de Combustível */}
+            <div className="fc-result-card fc-result-card--cost">
+              <div className="fc-result-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+              </div>
+              <div className="fc-result-body">
+                <span className="fc-result-label">Gasto de Combustível</span>
+                <span className="fc-result-formula">(Distância ÷ Consumo) × Diesel</span>
+                <span className="fc-result-value">
+                  {resultados.pronto ? formatBRL(resultados.gastoCombustivel) : '—'}
+                </span>
+              </div>
+            </div>
+
+            {/* Faturamento Bruto */}
+            <div className="fc-result-card fc-result-card--revenue">
+              <div className="fc-result-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="1" x2="12" y2="23" />
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <div className="fc-result-body">
+                <span className="fc-result-label">Faturamento Bruto</span>
+                <span className="fc-result-formula">Capacidade × Valor por Tonelada</span>
+                <span className="fc-result-value">
+                  {resultados.pronto ? formatBRL(resultados.faturamentoBruto) : '—'}
+                </span>
+              </div>
+            </div>
+
+            {/* Lucro Líquido */}
+            <div className={`fc-result-card fc-result-card--profit ${resultados.pronto && resultados.lucroLiquido < 0 ? 'fc-result-card--negative' : ''}`}>
+              <div className="fc-result-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                  <polyline points="17 6 23 6 23 12" />
+                </svg>
+              </div>
+              <div className="fc-result-body">
+                <span className="fc-result-label">Lucro Líquido da Viagem</span>
+                <span className="fc-result-formula">Faturamento Bruto − Gasto de Combustível</span>
+                <span className="fc-result-value">
+                  {resultados.pronto ? formatBRL(resultados.lucroLiquido) : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
       </form>
 
       <footer className="fc-footer">
