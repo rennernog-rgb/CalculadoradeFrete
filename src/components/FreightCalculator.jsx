@@ -31,6 +31,7 @@ export default function FreightCalculator() {
   const [destinoSuggs, setDestinoSuggs] = useState([])
   const [mapsReady, setMapsReady]       = useState(false)
   const [mapsError, setMapsError]       = useState('')
+  const [voltarVazio, setVoltarVazio]   = useState(false)
 
   const origemPlace  = useRef(null)
   const destinoPlace = useRef(null)
@@ -102,6 +103,7 @@ export default function FreightCalculator() {
     setDestinoSuggs([])
     setLoadingDist(false)
     setDistAutoFill(false)
+    setVoltarVazio(false)
     setMapsError('')
   }
 
@@ -159,8 +161,9 @@ export default function FreightCalculator() {
   }
 
   const calc = useMemo(() => {
-    const distancia   = parseFloat(form.distanciaKm)      || 0
-    const consumo     = parseFloat(form.mediaConsumo)      || 0
+    const distanciaBase = parseFloat(form.distanciaKm) || 0
+    const distancia     = voltarVazio ? distanciaBase * 2 : distanciaBase
+    const consumo   = parseFloat(form.mediaConsumo)      || 0
     const diesel      = parseFloat(form.valorDiesel)       || 0
     const capacidade  = parseFloat(form.capacidadeCarga)   || 0
     const valorTon    = parseFloat(form.valorPorTonelada)  || 0
@@ -184,11 +187,13 @@ export default function FreightCalculator() {
     return {
       gastoCombustivel, custoPedagio, faturamentoBruto, lucroLiquido,
       lucroSemanal, lucroDiario, lucroMensal, prontoViagem, prontoProjecao,
+      distanciaEfetiva: distancia,
     }
   }, [
     form.distanciaKm, form.mediaConsumo, form.valorDiesel,
     form.capacidadeCarga, form.valorPorTonelada, form.viagensPorSemana,
     form.quantidadeEixos, form.quantidadePedagios, form.valorMedioPorEixo,
+    voltarVazio,
   ])
 
   const lucroPositivo = calc.lucroMensal >= 0
@@ -310,6 +315,19 @@ export default function FreightCalculator() {
                       : <span className="fc-unit">km</span>
                     }
                   </div>
+                  <label className="fc-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={voltarVazio}
+                      onChange={e => setVoltarVazio(e.target.checked)}
+                    />
+                    Voltar vazio
+                    {voltarVazio && form.distanciaKm && (
+                      <span className="fc-checkbox-hint">
+                        {(parseFloat(form.distanciaKm) * 2).toFixed(1)} km total
+                      </span>
+                    )}
+                  </label>
                 </div>
 
                 <div className="fc-field">
