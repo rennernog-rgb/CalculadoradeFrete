@@ -25,17 +25,21 @@ const initialState = {
 
 export default function FreightCalculator() {
   const [form, setForm] = useState(initialState)
-  const [loadingDist, setLoadingDist]         = useState(false)
-  const [distAutoFill, setDistAutoFill]       = useState(false)
-  const [origemSuggs, setOrigemSuggs]         = useState([])
-  const [destinoSuggs, setDestinoSuggs]       = useState([])
+  const [loadingDist, setLoadingDist]   = useState(false)
+  const [distAutoFill, setDistAutoFill] = useState(false)
+  const [origemSuggs, setOrigemSuggs]   = useState([])
+  const [destinoSuggs, setDestinoSuggs] = useState([])
 
-  const origemPlace      = useRef(null)
-  const destinoPlace     = useRef(null)
-  const acServiceRef     = useRef(null)
-  const placesServiceRef = useRef(null)
-  const origemTimer      = useRef(null)
-  const destinoTimer     = useRef(null)
+  const origemPlace  = useRef(null)
+  const destinoPlace = useRef(null)
+  const origemTimer  = useRef(null)
+  const destinoTimer = useRef(null)
+
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY
+    if (!apiKey) return
+    setOptions({ apiKey, version: 'weekly' })
+  }, [])
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -51,6 +55,51 @@ export default function FreightCalculator() {
     setDestinoSuggs([])
     setLoadingDist(false)
     setDistAutoFill(false)
+  }
+
+  async function buscarSugestoes(value, setSuggs) {
+    if (!value) { setSuggs([]); return }
+    try {
+      const { AutocompleteSuggestion } = await importLibrary('places')
+      const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+        input: value,
+        language: 'pt-BR',
+        region: 'br',
+      })
+      setSuggs(suggestions)
+    } catch {
+      setSuggs([])
+    }
+  }
+
+  function handleOrigemChange(e) {
+    const value = e.target.value
+    setForm(prev => ({ ...prev, origem: value }))
+    origemPlace.current = null
+    setDistAutoFill(false)
+    clearTimeout(origemTimer.current)
+    origemTimer.current = setTimeout(() => buscarSugestoes(value, setOrigemSuggs), 300)
+  }
+
+  function handleDestinoChange(e) {
+    const value = e.target.value
+    setForm(prev => ({ ...prev, destino: value }))
+    destinoPlace.current = null
+    setDistAutoFill(false)
+    clearTimeout(destinoTimer.current)
+    destinoTimer.current = setTimeout(() => buscarSugestoes(value, setDestinoSuggs), 300)
+  }
+
+  async function selecionarLugar(suggestion, campo, setPlace, setSuggs) {
+    const pred  = suggestion.placePrediction
+    const nome  = pred.mainText.text
+    setForm(prev => ({ ...prev, [campo]: nome }))
+    setSuggs([])
+    const place = pred.toPlace()
+    await place.fetchFields({ fields: ['location'] })
+    if (!place.location) return
+    setPlace.current = { location: place.location }
+    calcularDistancia()
   }
 
   async function calcularDistancia() {
@@ -74,70 +123,6 @@ export default function FreightCalculator() {
     } finally {
       setLoadingDist(false)
     }
-  }
-
-  useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY
-    if (!apiKey) return
-    setOptions({ apiKey, version: 'weekly' })
-    importLibrary('places').then(({ AutocompleteService, PlacesService }) => {
-      acServiceRef.current     = new AutocompleteService()
-      placesServiceRef.current = new PlacesService(document.createElement('div'))
-    }).catch(() => {})
-  }, [])
-
-  function buscarSugestoes(value, setSuggs) {
-    if (!value || !acServiceRef.current) { setSuggs([]); return }
-    acServiceRef.current.getPlacePredictions(
-      { input: value, componentRestrictions: { country: 'br' } },
-      (predictions, status) => setSuggs(status === 'OK' ? predictions : [])
-    )
-  }
-
-  function handleOrigemChange(e) {
-    const { value } = e.target
-    setForm(prev => ({ ...prev, origem: value }))
-    origemPlace.current = null
-    setDistAutoFill(false)
-    clearTimeout(origemTimer.current)
-    origemTimer.current = setTimeout(() => buscarSugestoes(value, setOrigemSuggs), 300)
-  }
-
-  function handleDestinoChange(e) {
-    const { value } = e.target
-    setForm(prev => ({ ...prev, destino: value }))
-    destinoPlace.current = null
-    setDistAutoFill(false)
-    clearTimeout(destinoTimer.current)
-    destinoTimer.current = setTimeout(() => buscarSugestoes(value, setDestinoSuggs), 300)
-  }
-
-  function selecionarOrigem(prediction) {
-    setForm(prev => ({ ...prev, origem: prediction.description }))
-    setOrigemSuggs([])
-    if (!placesServiceRef.current) return
-    placesServiceRef.current.getDetails(
-      { placeId: prediction.place_id, fields: ['geometry'] },
-      (place, status) => {
-        if (status !== 'OK' || !place?.geometry?.location) return
-        origemPlace.current = { location: place.geometry.location }
-        calcularDistancia()
-      }
-    )
-  }
-
-  function selecionarDestino(prediction) {
-    setForm(prev => ({ ...prev, destino: prediction.description }))
-    setDestinoSuggs([])
-    if (!placesServiceRef.current) return
-    placesServiceRef.current.getDetails(
-      { placeId: prediction.place_id, fields: ['geometry'] },
-      (place, status) => {
-        if (status !== 'OK' || !place?.geometry?.location) return
-        destinoPlace.current = { location: place.geometry.location }
-        calcularDistancia()
-      }
-    )
   }
 
   const calc = useMemo(() => {
@@ -176,6 +161,20 @@ export default function FreightCalculator() {
 
   const lucroPositivo = calc.lucroMensal >= 0
 
+  function SuggList({ suggs, onSelect }) {
+    if (!suggs.length) return null
+    return (
+      <ul className="fc-sugg-list">
+        {suggs.map(s => (
+          <li key={s.placePrediction.placeId} onMouseDown={() => onSelect(s)}>
+            <span className="fc-sugg-main">{s.placePrediction.mainText.text}</span>
+            <span className="fc-sugg-sub">{s.placePrediction.secondaryText?.text}</span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
   return (
     <div className="fc-wrapper">
 
@@ -199,7 +198,6 @@ export default function FreightCalculator() {
       {/* ── DASHBOARD ── */}
       <div className="fc-dashboard">
 
-        {/* ── Coluna Esquerda: Formulário ── */}
         <div className="fc-form-col">
           <form onSubmit={(e) => e.preventDefault()}>
 
@@ -216,7 +214,6 @@ export default function FreightCalculator() {
               </div>
               <div className="fc-grid fc-grid-2">
 
-                {/* Origem */}
                 <div className="fc-field">
                   <label htmlFor="origem">Origem <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap fc-autocomplete-wrap">
@@ -232,20 +229,10 @@ export default function FreightCalculator() {
                       onBlur={() => setTimeout(() => setOrigemSuggs([]), 200)}
                       autoComplete="off"
                     />
-                    {origemSuggs.length > 0 && (
-                      <ul className="fc-sugg-list">
-                        {origemSuggs.map(s => (
-                          <li key={s.place_id} onMouseDown={() => selecionarOrigem(s)}>
-                            <span className="fc-sugg-main">{s.structured_formatting.main_text}</span>
-                            <span className="fc-sugg-sub">{s.structured_formatting.secondary_text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    <SuggList suggs={origemSuggs} onSelect={s => selecionarLugar(s, 'origem', origemPlace, setOrigemSuggs)} />
                   </div>
                 </div>
 
-                {/* Destino */}
                 <div className="fc-field">
                   <label htmlFor="destino">Destino <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap fc-autocomplete-wrap">
@@ -261,16 +248,7 @@ export default function FreightCalculator() {
                       onBlur={() => setTimeout(() => setDestinoSuggs([]), 200)}
                       autoComplete="off"
                     />
-                    {destinoSuggs.length > 0 && (
-                      <ul className="fc-sugg-list">
-                        {destinoSuggs.map(s => (
-                          <li key={s.place_id} onMouseDown={() => selecionarDestino(s)}>
-                            <span className="fc-sugg-main">{s.structured_formatting.main_text}</span>
-                            <span className="fc-sugg-sub">{s.structured_formatting.secondary_text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    <SuggList suggs={destinoSuggs} onSelect={s => selecionarLugar(s, 'destino', destinoPlace, setDestinoSuggs)} />
                   </div>
                 </div>
 
@@ -338,7 +316,6 @@ export default function FreightCalculator() {
                     <span className="fc-unit">km/l</span>
                   </div>
                 </div>
-
                 <div className="fc-field">
                   <label htmlFor="quantidadeEixos">Qtd. de Eixos <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
@@ -351,7 +328,6 @@ export default function FreightCalculator() {
                     <span className="fc-unit">eixos</span>
                   </div>
                 </div>
-
                 <div className="fc-field">
                   <label htmlFor="capacidadeCarga">Capacidade de Carga <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
@@ -393,7 +369,6 @@ export default function FreightCalculator() {
                     <span className="fc-unit">praças</span>
                   </div>
                 </div>
-
                 <div className="fc-field">
                   <label htmlFor="valorMedioPorEixo">Valor Médio por Eixo</label>
                   <div className="fc-input-wrap">
@@ -432,7 +407,6 @@ export default function FreightCalculator() {
                     <input id="tipoCarga" name="tipoCarga" type="text" placeholder="Ex: Granel, Frigorificado..." value={form.tipoCarga} onChange={handleChange} />
                   </div>
                 </div>
-
                 <div className="fc-field">
                   <label htmlFor="valorDiesel">Diesel S10 <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
@@ -445,7 +419,6 @@ export default function FreightCalculator() {
                     <span className="fc-unit">/ litro</span>
                   </div>
                 </div>
-
                 <div className="fc-field">
                   <label htmlFor="valorPorTonelada">Valor por Tonelada <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
@@ -474,10 +447,9 @@ export default function FreightCalculator() {
           </form>
         </div>
 
-        {/* ── Coluna Direita: Painel Executivo (sticky) ── */}
+        {/* ── Coluna Direita ── */}
         <aside className="fc-panel-col">
 
-          {/* Card: Projeção de Lucratividade */}
           <div className={`fc-proj-card ${calc.prontoProjecao ? 'fc-proj-card--active' : ''}`}>
             <div className="fc-proj-top">
               <span className="fc-proj-eyebrow">Projeção de Lucratividade</span>
@@ -487,7 +459,6 @@ export default function FreightCalculator() {
                 </span>
               )}
             </div>
-
             <div className="fc-proj-main">
               <span className="fc-proj-main-label">Lucro Mensal Estimado</span>
               <span className={`fc-proj-main-value ${calc.prontoProjecao ? (lucroPositivo ? 'positive' : 'negative') : ''}`}>
@@ -495,7 +466,6 @@ export default function FreightCalculator() {
               </span>
               <span className="fc-proj-main-sub">22 dias úteis / mês</span>
             </div>
-
             <div className="fc-proj-secondary">
               <div className="fc-proj-sec-item">
                 <span className="fc-proj-sec-label">Semanal</span>
@@ -511,7 +481,6 @@ export default function FreightCalculator() {
                 </span>
               </div>
             </div>
-
             {!calc.prontoProjecao && (
               <p className="fc-proj-hint">
                 Preencha todos os campos obrigatórios para ver as projeções
@@ -519,7 +488,6 @@ export default function FreightCalculator() {
             )}
           </div>
 
-          {/* Card: Resultado por Viagem */}
           <div className="fc-breakdown-card">
             <div className="fc-breakdown-header">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -527,61 +495,46 @@ export default function FreightCalculator() {
               </svg>
               Resultado por Viagem
             </div>
-
             <div className="fc-breakdown-list">
               <div className="fc-breakdown-row">
                 <div className="fc-breakdown-label">
-                  <span className="fc-dot fc-dot--revenue" />
-                  Faturamento Bruto
+                  <span className="fc-dot fc-dot--revenue" />Faturamento Bruto
                 </div>
                 <span className="fc-breakdown-value">
                   {calc.prontoViagem ? formatBRL(calc.faturamentoBruto) : DASH}
                 </span>
               </div>
-
               <div className="fc-breakdown-row">
                 <div className="fc-breakdown-label">
-                  <span className="fc-dot fc-dot--fuel" />
-                  − Combustível
+                  <span className="fc-dot fc-dot--fuel" />− Combustível
                 </div>
                 <span className="fc-breakdown-value fc-breakdown-value--cost">
                   {calc.prontoViagem ? formatBRL(calc.gastoCombustivel) : DASH}
                 </span>
               </div>
-
               <div className="fc-breakdown-row">
                 <div className="fc-breakdown-label">
-                  <span className="fc-dot fc-dot--toll" />
-                  − Pedágio
+                  <span className="fc-dot fc-dot--toll" />− Pedágio
                 </div>
                 <span className="fc-breakdown-value fc-breakdown-value--cost">
                   {calc.prontoViagem ? formatBRL(calc.custoPedagio) : DASH}
                 </span>
               </div>
-
               <div className="fc-breakdown-sep" />
-
               <div className="fc-breakdown-row fc-breakdown-row--total">
                 <div className="fc-breakdown-label">
                   <span className={`fc-dot ${calc.prontoViagem && calc.lucroLiquido < 0 ? 'fc-dot--negative' : 'fc-dot--profit'}`} />
                   = Lucro Líquido
                 </div>
                 <span className={`fc-breakdown-value fc-breakdown-value--total ${
-                  calc.prontoViagem
-                    ? calc.lucroLiquido >= 0
-                      ? 'fc-breakdown-value--profit'
-                      : 'fc-breakdown-value--negative'
-                    : ''
+                  calc.prontoViagem ? (calc.lucroLiquido >= 0 ? 'fc-breakdown-value--profit' : 'fc-breakdown-value--negative') : ''
                 }`}>
                   {calc.prontoViagem ? formatBRL(calc.lucroLiquido) : DASH}
                 </span>
               </div>
             </div>
-
             {calc.prontoViagem && (
-              <div className="fc-breakdown-footer">
-                Faturamento − Combustível − Pedágio
-              </div>
+              <div className="fc-breakdown-footer">Faturamento − Combustível − Pedágio</div>
             )}
           </div>
 
