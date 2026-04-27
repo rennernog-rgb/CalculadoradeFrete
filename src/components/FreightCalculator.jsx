@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { TIPOS_CARGA, calcularFreteMinimo } from '../data/tabelaMinima'
+import { TIPOS_CARGA, calcularFreteMinimo, calcularRetornoVazio } from '../data/tabelaMinima'
 import './FreightCalculator.css'
 
 function formatBRL(value) {
@@ -185,11 +185,12 @@ export default function FreightCalculator() {
     const prontoViagem   = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
     const prontoProjecao = prontoViagem && viagens > 0
 
-    // Piso mínimo usa distanciaBase (trecho carregado, ida apenas).
-    // "Voltar vazio" não gera frete — a ANTT não cobra mínimo pelo retorno sem carga.
-    const freteMinimo = (form.tipoCarga && eixos >= 2 && distanciaBase > 0)
-      ? calcularFreteMinimo(distanciaBase, eixos, form.tipoCarga)
-      : 0
+    // Piso mínimo ANTT: fórmula = (distância × CCD) + CC
+    // Usa distanciaBase (trecho carregado). Retorno vazio = 0,92 × distância × CCD.
+    const temDadosAntt = form.tipoCarga && eixos >= 2 && distanciaBase > 0
+    const freteMinIda      = temDadosAntt ? calcularFreteMinimo(distanciaBase, eixos, form.tipoCarga) : 0
+    const freteMinRetorno  = (temDadosAntt && voltarVazio) ? calcularRetornoVazio(distanciaBase, eixos, form.tipoCarga) : 0
+    const freteMinimo      = freteMinIda + freteMinRetorno
     const freteMinimoPorTon = (freteMinimo > 0 && capacidade > 0) ? freteMinimo / capacidade : 0
     const abaixoDoMinimo = valorTon > 0 && freteMinimoPorTon > 0 && valorTon < freteMinimoPorTon
 
@@ -311,7 +312,7 @@ export default function FreightCalculator() {
                       <path d="M2 12h20M17 7l5 5-5 5" />
                     </svg>
                     <input
-                      id="distanciaKm" name="distanciaKm" type="number"
+                      id="distanciaKm" name="distanciaKm" type="number" inputMode="decimal"
                       min="0" step="0.01" placeholder="0"
                       value={form.distanciaKm} onChange={handleChange}
                       className={distAutoFill ? 'fc-input--autofill' : ''}
@@ -347,7 +348,7 @@ export default function FreightCalculator() {
                       <rect x="3" y="4" width="18" height="18" rx="2" />
                       <path d="M16 2v4M8 2v4M3 10h18" />
                     </svg>
-                    <input id="viagensPorSemana" name="viagensPorSemana" type="number" min="0" step="1" placeholder="0" value={form.viagensPorSemana} onChange={handleChange} />
+                    <input id="viagensPorSemana" name="viagensPorSemana" type="number" inputMode="numeric" min="0" step="1" placeholder="0" value={form.viagensPorSemana} onChange={handleChange} />
                     <span className="fc-unit">viagens</span>
                   </div>
                 </div>
@@ -371,7 +372,7 @@ export default function FreightCalculator() {
                   <label htmlFor="mediaConsumo">Média de Consumo <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
-                    <input id="mediaConsumo" name="mediaConsumo" type="number" min="0" step="0.01" placeholder="0,00" value={form.mediaConsumo} onChange={handleChange} />
+                    <input id="mediaConsumo" name="mediaConsumo" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0,00" value={form.mediaConsumo} onChange={handleChange} />
                     <span className="fc-unit">km/l</span>
                   </div>
                 </div>
@@ -379,7 +380,7 @@ export default function FreightCalculator() {
                   <label htmlFor="quantidadeEixos">Qtd. de Eixos <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" /><path d="M6 15V9l6-6 6 6v6" /></svg>
-                    <input id="quantidadeEixos" name="quantidadeEixos" type="number" min="0" step="1" placeholder="0" value={form.quantidadeEixos} onChange={handleChange} />
+                    <input id="quantidadeEixos" name="quantidadeEixos" type="number" inputMode="numeric" min="0" step="1" placeholder="0" value={form.quantidadeEixos} onChange={handleChange} />
                     <span className="fc-unit">eixos</span>
                   </div>
                 </div>
@@ -387,7 +388,7 @@ export default function FreightCalculator() {
                   <label htmlFor="capacidadeCarga">Capacidade de Carga <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>
-                    <input id="capacidadeCarga" name="capacidadeCarga" type="number" min="0" step="0.1" placeholder="0,0" value={form.capacidadeCarga} onChange={handleChange} />
+                    <input id="capacidadeCarga" name="capacidadeCarga" type="number" inputMode="decimal" min="0" step="0.1" placeholder="0,0" value={form.capacidadeCarga} onChange={handleChange} />
                     <span className="fc-unit">ton</span>
                   </div>
                 </div>
@@ -409,7 +410,7 @@ export default function FreightCalculator() {
                   <label htmlFor="quantidadePedagios">Praças de Pedágio</label>
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                    <input id="quantidadePedagios" name="quantidadePedagios" type="number" min="0" step="1" placeholder="0" value={form.quantidadePedagios} onChange={handleChange} />
+                    <input id="quantidadePedagios" name="quantidadePedagios" type="number" inputMode="numeric" min="0" step="1" placeholder="0" value={form.quantidadePedagios} onChange={handleChange} />
                     <span className="fc-unit">praças</span>
                   </div>
                 </div>
@@ -418,7 +419,7 @@ export default function FreightCalculator() {
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
                     <span className="fc-prefix">R$</span>
-                    <input id="valorMedioPorEixo" name="valorMedioPorEixo" type="number" min="0" step="0.01" placeholder="0,00" value={form.valorMedioPorEixo} onChange={handleChange} className="has-prefix" />
+                    <input id="valorMedioPorEixo" name="valorMedioPorEixo" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0,00" value={form.valorMedioPorEixo} onChange={handleChange} className="has-prefix" />
                     <span className="fc-unit">/ eixo</span>
                   </div>
                 </div>
@@ -459,7 +460,7 @@ export default function FreightCalculator() {
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                     <span className="fc-prefix">R$</span>
-                    <input id="valorDiesel" name="valorDiesel" type="number" min="0" step="0.01" placeholder="0,00" value={form.valorDiesel} onChange={handleChange} className="has-prefix" />
+                    <input id="valorDiesel" name="valorDiesel" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0,00" value={form.valorDiesel} onChange={handleChange} className="has-prefix" />
                     <span className="fc-unit">/ litro</span>
                   </div>
                 </div>
@@ -468,7 +469,7 @@ export default function FreightCalculator() {
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
                     <span className="fc-prefix">R$</span>
-                    <input id="valorPorTonelada" name="valorPorTonelada" type="number" min="0" step="0.01" placeholder="0,00" value={form.valorPorTonelada} onChange={handleChange} className="has-prefix" />
+                    <input id="valorPorTonelada" name="valorPorTonelada" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0,00" value={form.valorPorTonelada} onChange={handleChange} className="has-prefix" />
                     <span className="fc-unit">/ ton</span>
                   </div>
                 </div>
