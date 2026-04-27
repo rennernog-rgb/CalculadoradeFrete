@@ -1,0 +1,48 @@
+name: Atualizar Tabela ANTT
+
+on:
+  schedule:
+    # Executa todo dia 1 às 06:00 UTC (03:00 Brasília)
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+    # Permite acionar manualmente pelo GitHub → Actions → "Run workflow"
+
+permissions:
+  contents: write
+
+jobs:
+  update-tabela:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install
+
+      - name: Instalar navegador Chromium (Playwright)
+        run: npx playwright install chromium --with-deps
+
+      - name: Buscar coeficientes CCD/CC da calculadora ANTT
+        run: node scripts/fetch-antt-tabela.js
+
+      - name: Verificar se houve alteração na tabela
+        id: diff
+        run: |
+          git diff --quiet src/data/tabelaMinima.js && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit e push da tabela atualizada
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name  "ANTT Table Bot"
+          git config user.email "bot@noreply.github.com"
+          git add src/data/tabelaMinima.js
+          git commit -m "chore: atualizar tabela ANTT automaticamente [$(date +%Y-%m-%d)]"
+          git push
+
+      - name: Sem alteração
+        if: steps.diff.outputs.changed == 'false'
+        run: echo "Tabela já está atualizada — nenhum commit necessário."
