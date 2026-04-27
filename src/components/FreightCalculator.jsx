@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { TIPOS_CARGA, calcularFreteMinimo } from '../data/tabelaMinima'
 import './FreightCalculator.css'
 
 function formatBRL(value) {
@@ -184,16 +185,23 @@ export default function FreightCalculator() {
     const prontoViagem   = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
     const prontoProjecao = prontoViagem && viagens > 0
 
+    const freteMinimo = (form.tipoCarga && eixos >= 2 && distancia > 0)
+      ? calcularFreteMinimo(distancia, eixos, form.tipoCarga)
+      : 0
+    const freteMinimoPorTon = (freteMinimo > 0 && capacidade > 0) ? freteMinimo / capacidade : 0
+    const abaixoDoMinimo = valorTon > 0 && freteMinimoPorTon > 0 && valorTon < freteMinimoPorTon
+
     return {
       gastoCombustivel, custoPedagio, faturamentoBruto, lucroLiquido,
       lucroSemanal, lucroDiario, lucroMensal, prontoViagem, prontoProjecao,
       distanciaEfetiva: distancia,
+      freteMinimo, freteMinimoPorTon, abaixoDoMinimo,
     }
   }, [
     form.distanciaKm, form.mediaConsumo, form.valorDiesel,
     form.capacidadeCarga, form.valorPorTonelada, form.viagensPorSemana,
     form.quantidadeEixos, form.quantidadePedagios, form.valorMedioPorEixo,
-    voltarVazio,
+    voltarVazio, form.tipoCarga,
   ])
 
   const lucroPositivo = calc.lucroMensal >= 0
@@ -427,7 +435,21 @@ export default function FreightCalculator() {
                   <label htmlFor="tipoCarga">Tipo de Carga <span className="fc-required">*</span></label>
                   <div className="fc-input-wrap">
                     <svg className="fc-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>
-                    <input id="tipoCarga" name="tipoCarga" type="text" placeholder="Ex: Granel, Frigorificado..." value={form.tipoCarga} onChange={handleChange} />
+                    <select
+                      id="tipoCarga"
+                      name="tipoCarga"
+                      value={form.tipoCarga}
+                      onChange={handleChange}
+                      className={!form.tipoCarga ? 'fc-select-empty' : ''}
+                    >
+                      <option value="">Selecione o tipo...</option>
+                      {TIPOS_CARGA.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                    <svg className="fc-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
                   </div>
                 </div>
                 <div className="fc-field">
@@ -532,6 +554,34 @@ export default function FreightCalculator() {
               </div>
             </div>
             {calc.prontoViagem && <div className="fc-breakdown-footer">Faturamento − Combustível − Pedágio</div>}
+
+            {calc.freteMinimo > 0 && (
+              <div className="fc-antt-section">
+                <div className="fc-antt-header">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                  Piso Mínimo ANTT
+                </div>
+                <div className="fc-antt-row">
+                  <span>Por viagem</span>
+                  <span className="fc-antt-value">{formatBRL(calc.freteMinimo)}</span>
+                </div>
+                {calc.freteMinimoPorTon > 0 && (
+                  <div className="fc-antt-row">
+                    <span>Por tonelada</span>
+                    <span className="fc-antt-value">{formatBRL(calc.freteMinimoPorTon)}/ton</span>
+                  </div>
+                )}
+                <div className={`fc-antt-badge ${calc.abaixoDoMinimo ? 'fc-antt-badge--warn' : calc.prontoViagem ? 'fc-antt-badge--ok' : ''}`}>
+                  {calc.abaixoDoMinimo
+                    ? '⚠ Abaixo do Mínimo Legal'
+                    : calc.prontoViagem
+                      ? '✓ Dentro do Mínimo Legal'
+                      : 'Informe o valor/ton para comparar'}
+                </div>
+              </div>
+            )}
           </div>
         </aside>
       </div>
