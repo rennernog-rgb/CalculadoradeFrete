@@ -221,12 +221,51 @@
 .fc-input-wrap input.has-prefix { padding-left: 52px; }
 
 .fc-input-wrap input[name="origem"],
-.fc-input-wrap input[name="destino"],
-.fc-input-wrap input[name="tipoCarga"] { padding-right: 14px; }
+.fc-input-wrap input[name="destino"] { padding-right: 14px; }
 
 .fc-field:hover .fc-input-wrap input:not(:focus) {
   border-color: #93b8d8;
   background: #fff;
+}
+
+/* ── SELECT ── */
+.fc-input-wrap select {
+  width: 100%;
+  height: 42px;
+  padding: 0 36px 0 34px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e293b;
+  font-family: inherit;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.fc-input-wrap select:focus {
+  border-color: #1e5f9a;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(30, 95, 154, 0.1);
+}
+
+.fc-field:hover .fc-input-wrap select:not(:focus) {
+  border-color: #93b8d8;
+  background: #fff;
+}
+
+.fc-input-wrap select.fc-select-empty { color: #c0cbd8; }
+
+.fc-select-arrow {
+  position: absolute;
+  right: 11px;
+  width: 14px;
+  height: 14px;
+  color: #94a3b8;
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 /* ── BUTTONS ── */
@@ -618,6 +657,71 @@
 @keyframes fc-spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* ── ANTT MINIMUM SECTION ── */
+.fc-antt-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 2px solid #e8f0fb;
+}
+
+.fc-antt-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #1a3a5c;
+  margin-bottom: 10px;
+}
+
+.fc-antt-header svg {
+  width: 13px;
+  height: 13px;
+  color: #1e5f9a;
+  flex-shrink: 0;
+}
+
+.fc-antt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #4b5563;
+  margin-bottom: 5px;
+}
+
+.fc-antt-value {
+  font-weight: 600;
+  color: #1a3a5c;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-antt-badge {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.fc-antt-badge--ok {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.fc-antt-badge--warn {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
 }
 
 /* ── FOOTER ── */
