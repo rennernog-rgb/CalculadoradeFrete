@@ -185,8 +185,10 @@ export default function FreightCalculator() {
     const prontoViagem   = distancia > 0 && consumo > 0 && diesel > 0 && capacidade > 0 && valorTon > 0
     const prontoProjecao = prontoViagem && viagens > 0
 
-    const freteMinimo = (form.tipoCarga && eixos >= 2 && distancia > 0)
-      ? calcularFreteMinimo(distancia, eixos, form.tipoCarga)
+    // Piso mínimo usa distanciaBase (trecho carregado, ida apenas).
+    // "Voltar vazio" não gera frete — a ANTT não cobra mínimo pelo retorno sem carga.
+    const freteMinimo = (form.tipoCarga && eixos >= 2 && distanciaBase > 0)
+      ? calcularFreteMinimo(distanciaBase, eixos, form.tipoCarga)
       : 0
     const freteMinimoPorTon = (freteMinimo > 0 && capacidade > 0) ? freteMinimo / capacidade : 0
     const abaixoDoMinimo = valorTon > 0 && freteMinimoPorTon > 0 && valorTon < freteMinimoPorTon
